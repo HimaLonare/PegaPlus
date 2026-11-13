@@ -1,3 +1,8 @@
 Molecule_ID,Original_Cluster,Constrained_Cluster
-2,2,6
-3,6,2
+1,6,2
+37,7,6
+63,1,0
+76,4,3
+87,1,2
+134,2,7
+151,1,6

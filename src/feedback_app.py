@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
 import os
+import sys
+import subprocess
+from pathlib import Path
 
 
 # ============================================================
@@ -24,14 +27,241 @@ feedback about their structural similarity.
 
 
 # ============================================================
-# FILE PATHS
+# PROJECT PATHS
 # ============================================================
 
-DATA_PATH = "data/processed/cox2_clustered.csv"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-RECOMMENDATION_PATH = "results/recommended_pairs.csv"
+DATA_PATH = PROJECT_ROOT / "data" / "processed" / "cox2_clustered.csv"
 
-FEEDBACK_PATH = "data/processed/human_feedback.csv"
+RECOMMENDATION_PATH = PROJECT_ROOT / "results" / "recommended_pairs.csv"
+
+FEEDBACK_PATH = PROJECT_ROOT / "data" / "processed" / "human_feedback.csv"
+
+
+# ============================================================
+# PIPELINE CONFIGURATION
+# ============================================================
+
+PIPELINE_STEPS = [
+
+    (
+        "Convert human feedback into constraints",
+        "src/constraint_engine.py"
+    ),
+
+    (
+        "Run constrained clustering",
+        "src/constrained_clustering.py"
+    ),
+
+    (
+        "Compare baseline and constrained clustering",
+        "src/compare_clustering.py"
+    ),
+
+    (
+        "Analyze the impact of human feedback",
+        "src/analyze_feedback_impact.py"
+    ),
+
+    (
+        "Generate new intelligent molecule pairs",
+        "src/intelligent_pair_selection.py"
+    )
+
+]
+
+
+# ============================================================
+# RUN COMPLETE LEARNING PIPELINE
+# ============================================================
+
+def run_learning_pipeline():
+
+    logs = []
+
+    logs.append("=" * 60)
+    logs.append("PEGAPLUS: COMPLETE LEARNING PIPELINE")
+    logs.append("=" * 60)
+
+    logs.append(f"Project directory: {PROJECT_ROOT}")
+
+    # Check that all scripts exist
+    for description, script in PIPELINE_STEPS:
+
+        script_path = PROJECT_ROOT / script
+
+        if not script_path.exists():
+
+            logs.append(f"ERROR: Script not found: {script}")
+
+            return False, "\n".join(logs)
+
+    # Check feedback file
+    if not FEEDBACK_PATH.exists():
+
+        logs.append("ERROR: Human feedback file not found.")
+
+        return False, "\n".join(logs)
+
+    # Execute pipeline
+    for step_number, (description, script) in enumerate(
+        PIPELINE_STEPS,
+        start=1
+    ):
+
+        logs.append("\n" + "-" * 60)
+
+        logs.append(
+            f"STEP {step_number}/{len(PIPELINE_STEPS)}: {description}"
+        )
+
+        logs.append("-" * 60)
+
+        try:
+
+            result = subprocess.run(
+
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / script)
+                ],
+
+                cwd=PROJECT_ROOT,
+
+                capture_output=True,
+
+                text=True,
+
+                check=True,
+
+                timeout=300
+
+            )
+
+            logs.append(result.stdout)
+
+            if result.stderr:
+
+                logs.append("\nWARNINGS / STDERR:")
+
+                logs.append(result.stderr)
+
+            logs.append(
+                f"\nSUCCESS: {description}"
+            )
+
+        except subprocess.TimeoutExpired:
+
+            logs.append(
+                f"ERROR: {description} exceeded the 5-minute timeout."
+            )
+
+            return False, "\n".join(logs)
+
+        except subprocess.CalledProcessError as error:
+
+            logs.append(
+                f"ERROR: Pipeline stopped during: {description}"
+            )
+
+            logs.append(error.stdout or "")
+
+            logs.append(error.stderr or "")
+
+            return False, "\n".join(logs)
+
+        except Exception as error:
+
+            logs.append(
+                f"UNEXPECTED ERROR: {str(error)}"
+            )
+
+            return False, "\n".join(logs)
+
+    logs.append("\n" + "=" * 60)
+
+    logs.append(
+        "PEGAPLUS PIPELINE COMPLETED SUCCESSFULLY!"
+    )
+
+    logs.append("=" * 60)
+
+    return True, "\n".join(logs)
+
+
+# ============================================================
+# PIPELINE CONTROL CENTER
+# ============================================================
+
+st.divider()
+
+st.header("⚙️ Learning Pipeline Control Center")
+
+st.markdown("""
+Run the complete human-in-the-loop learning process
+with one click.
+
+The pipeline will:
+
+1. Convert human feedback into constraints.
+2. Perform constrained clustering.
+3. Compare clustering algorithms.
+4. Analyze the impact of human feedback.
+5. Generate new molecule-pair recommendations.
+""")
+
+if st.button(
+    "🚀 Run Complete Learning Pipeline",
+    type="primary",
+    use_container_width=True
+):
+
+    with st.spinner(
+        "Running the complete PegaPlus learning pipeline..."
+    ):
+
+        success, output = run_learning_pipeline()
+
+    st.session_state["pipeline_output"] = output
+
+    st.session_state["pipeline_success"] = success
+
+    if success:
+
+        # FIX: Clear Streamlit cached datasets
+        st.cache_data.clear()
+
+        st.success(
+            "PegaPlus learning pipeline completed successfully!"
+        )
+
+        # Reload the application with updated recommendations
+        st.rerun()
+
+    else:
+
+        st.error(
+            "Pipeline execution failed. Check the execution logs below."
+        )
+
+
+# ============================================================
+# DISPLAY PIPELINE EXECUTION LOGS
+# ============================================================
+
+if "pipeline_output" in st.session_state:
+
+    with st.expander(
+        "📋 View Pipeline Execution Logs",
+        expanded=True
+    ):
+
+        st.code(
+            st.session_state["pipeline_output"],
+            language="text"
+        )
 
 
 # ============================================================
@@ -44,8 +274,13 @@ def load_data():
     molecules = pd.read_csv(DATA_PATH)
 
     if os.path.exists(RECOMMENDATION_PATH):
-        recommendations = pd.read_csv(RECOMMENDATION_PATH)
+
+        recommendations = pd.read_csv(
+            RECOMMENDATION_PATH
+        )
+
     else:
+
         recommendations = pd.DataFrame()
 
     return molecules, recommendations
@@ -64,26 +299,33 @@ def load_feedback():
 
         feedback = pd.read_csv(FEEDBACK_PATH)
 
-        # Support both old and new feedback formats
+        # Support old and new feedback formats
         if "relationship" not in feedback.columns:
+
             feedback["relationship"] = None
 
         if "feedback" not in feedback.columns:
+
             feedback["feedback"] = None
 
-        # Recover relationship from feedback where necessary
+        # Recover relationship from feedback
         feedback["relationship"] = (
-            feedback["relationship"].fillna(feedback["feedback"])
+            feedback["relationship"].fillna(
+                feedback["feedback"]
+            )
         )
 
-        # Recover feedback from relationship where necessary
+        # Recover feedback from relationship
         feedback["feedback"] = (
-            feedback["feedback"].fillna(feedback["relationship"])
+            feedback["feedback"].fillna(
+                feedback["relationship"]
+            )
         )
 
         return feedback
 
     return pd.DataFrame(columns=[
+
         "molecule_1",
         "molecule_2",
         "relationship",
@@ -93,6 +335,7 @@ def load_feedback():
         "reference_label_2",
         "timestamp",
         "feedback"
+
     ])
 
 
@@ -103,12 +346,17 @@ feedback_df = load_feedback()
 # SAVE HUMAN FEEDBACK
 # ============================================================
 
-def save_feedback(molecule_1, molecule_2, feedback):
+def save_feedback(
+    molecule_1,
+    molecule_2,
+    feedback
+):
 
     global feedback_df
 
     # Get information about both molecules
     mol1 = df.iloc[molecule_1 - 1]
+
     mol2 = df.iloc[molecule_2 - 1]
 
     new_record = {
@@ -117,31 +365,45 @@ def save_feedback(molecule_1, molecule_2, feedback):
 
         "molecule_2": molecule_2,
 
-        # Used by constraint_engine.py
         "relationship": feedback,
 
-        "cluster_1": int(mol1["predicted_cluster"]),
+        "cluster_1": int(
+            mol1["predicted_cluster"]
+        ),
 
-        "cluster_2": int(mol2["predicted_cluster"]),
+        "cluster_2": int(
+            mol2["predicted_cluster"]
+        ),
 
-        "reference_label_1": int(mol1["reference_label"]),
+        "reference_label_1": int(
+            mol1["reference_label"]
+        ),
 
-        "reference_label_2": int(mol2["reference_label"]),
+        "reference_label_2": int(
+            mol2["reference_label"]
+        ),
 
         "timestamp": pd.Timestamp.now().isoformat(),
 
-        # Kept for compatibility with the new feedback interface
         "feedback": feedback
+
     }
 
-    new_record_df = pd.DataFrame([new_record])
-
-    feedback_df = pd.concat(
-        [feedback_df, new_record_df],
-        ignore_index=True
+    new_record_df = pd.DataFrame(
+        [new_record]
     )
 
-    # Save all existing and new records
+    feedback_df = pd.concat(
+
+        [
+            feedback_df,
+            new_record_df
+        ],
+
+        ignore_index=True
+
+    )
+
     feedback_df.to_csv(
         FEEDBACK_PATH,
         index=False
@@ -186,8 +448,11 @@ st.divider()
 def get_pair_key(row):
 
     return tuple(sorted((
+
         int(row["molecule_1"]),
+
         int(row["molecule_2"])
+
     )))
 
 
@@ -195,7 +460,9 @@ reviewed_pairs = set()
 
 for _, row in feedback_df.iterrows():
 
-    reviewed_pairs.add(get_pair_key(row))
+    reviewed_pairs.add(
+        get_pair_key(row)
+    )
 
 
 # ============================================================
@@ -204,13 +471,19 @@ for _, row in feedback_df.iterrows():
 
 if not recommendations.empty:
 
-    recommendations["pair_key"] = recommendations.apply(
-        get_pair_key,
-        axis=1
+    recommendations["pair_key"] = (
+        recommendations.apply(
+            get_pair_key,
+            axis=1
+        )
     )
 
     pending = recommendations[
-        ~recommendations["pair_key"].isin(reviewed_pairs)
+
+        ~recommendations["pair_key"].isin(
+            reviewed_pairs
+        )
+
     ].copy()
 
 else:
@@ -232,28 +505,37 @@ if pending.empty:
     )
 
     st.info(
-        "Run intelligent_pair_selection.py again to generate "
-        "new recommendations."
+        "Run the Learning Pipeline above to generate new recommendations."
     )
 
 else:
 
     # Strategy selection
     strategy = st.selectbox(
+
         "Select Recommendation Strategy",
+
         [
+
             "All Strategies",
+
             "High Similarity",
+
             "Low Similarity",
+
             "Cluster Boundary"
+
         ]
+
     )
 
     # Filter recommendations
     if strategy != "All Strategies":
 
         filtered = pending[
+
             pending["selection_strategy"] == strategy
+
         ]
 
     else:
@@ -272,39 +554,53 @@ else:
             f"**{len(filtered)} unreviewed pairs available.**"
         )
 
-        pair_options = filtered.to_dict("records")
+        pair_options = filtered.to_dict(
+            "records"
+        )
 
         # Select molecule pair
         selected_index = st.selectbox(
+
             "Choose a molecule pair",
 
             range(len(pair_options)),
 
             format_func=lambda i: (
+
                 f"Molecule {pair_options[i]['molecule_1']} "
+
                 f"↔ Molecule {pair_options[i]['molecule_2']} "
+
                 f"({pair_options[i]['selection_strategy']})"
+
             )
+
         )
 
         selected_pair = pair_options[selected_index]
 
-        molecule_1 = int(selected_pair["molecule_1"])
+        molecule_1 = int(
+            selected_pair["molecule_1"]
+        )
 
-        molecule_2 = int(selected_pair["molecule_2"])
-
+        molecule_2 = int(
+            selected_pair["molecule_2"]
+        )
 
         st.divider()
 
-        st.subheader("Molecule Pair Details")
-
+        st.subheader(
+            "Molecule Pair Details"
+        )
 
         # Display molecule information
         col1, col2 = st.columns(2)
 
         with col1:
 
-            st.markdown("### Molecule 1")
+            st.markdown(
+                "### Molecule 1"
+            )
 
             st.metric(
                 "Molecule ID",
@@ -318,7 +614,9 @@ else:
 
         with col2:
 
-            st.markdown("### Molecule 2")
+            st.markdown(
+                "### Molecule 2"
+            )
 
             st.metric(
                 "Molecule ID",
@@ -330,19 +628,25 @@ else:
                 int(selected_pair["cluster_2"])
             )
 
-
         st.divider()
 
-        st.subheader("Structural Similarity")
+        st.subheader(
+            "Structural Similarity"
+        )
 
         st.metric(
+
             "Tanimoto Similarity",
+
             f"{selected_pair['tanimoto_similarity']:.4f}"
+
         )
 
         st.info(
+
             f"Recommendation Strategy: "
             f"{selected_pair['selection_strategy']}"
+
         )
 
         st.caption(
@@ -351,14 +655,15 @@ else:
             "similar biological activity."
         )
 
-
         # ====================================================
         # HUMAN FEEDBACK
         # ====================================================
 
         st.divider()
 
-        st.subheader("Human Feedback")
+        st.subheader(
+            "Human Feedback"
+        )
 
         st.write(
             "Based on your chemical assessment, "
@@ -366,26 +671,41 @@ else:
         )
 
         feedback = st.radio(
+
             "Select your judgment:",
-            ["Similar", "Dissimilar"],
+
+            [
+                "Similar",
+                "Dissimilar"
+            ],
+
             horizontal=True
+
         )
 
-
         if st.button(
+
             "Submit Feedback",
+
             type="primary"
+
         ):
 
             save_feedback(
+
                 molecule_1,
+
                 molecule_2,
+
                 feedback
+
             )
 
             st.success(
+
                 f"Feedback saved: Molecule {molecule_1} and "
                 f"Molecule {molecule_2} → {feedback}"
+
             )
 
             st.rerun()
@@ -397,26 +717,34 @@ else:
 
 st.divider()
 
-st.header("📊 Human Feedback History")
+st.header(
+    "📊 Human Feedback History"
+)
 
 feedback_df = load_feedback()
-
 
 if not feedback_df.empty:
 
     st.dataframe(
+
         feedback_df,
+
         use_container_width=True
+
     )
 
     st.download_button(
+
         "Download Feedback CSV",
 
-        data=feedback_df.to_csv(index=False),
+        data=feedback_df.to_csv(
+            index=False
+        ),
 
         file_name="human_feedback.csv",
 
         mime="text/csv"
+
     )
 
 else:
@@ -433,6 +761,8 @@ else:
 st.divider()
 
 st.caption(
+
     "PegaPlus | Human-in-the-Loop Molecular Clustering "
     "| Machine Learning in Chemistry Project"
+
 )
