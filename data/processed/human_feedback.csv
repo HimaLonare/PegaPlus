@@ -1,0 +1,10 @@
+molecule_1,molecule_2,relationship,cluster_1,cluster_2,reference_label_1,reference_label_2,timestamp,feedback
+1,2,Similar,6.0,2.0,3.0,3.0,2026-11-13T18:22:20.523868,Similar
+3,1,Dissimilar,6.0,6.0,3.0,3.0,2026-11-13T18:22:35.426621,Dissimilar
+58,63,Similar,,,,,,Similar
+75,76,Dissimilar,,,,,,Dissimilar
+131,134,Dissimilar,,,,,,Dissimilar
+3,151,Similar,6.0,1.0,3.0,5.0,2026-11-13T23:24:12.903117,Similar
+2,87,Similar,2.0,1.0,3.0,1.0,2026-11-13T23:31:05.938182,Similar
+3,37,Similar,6.0,7.0,3.0,1.0,2026-11-13T23:31:14.977973,Similar
+2,126,Dissimilar,2.0,6.0,3.0,8.0,2026-11-13T23:33:21.035317,Dissimilar
