@@ -63,32 +63,26 @@ SDF_PATH = (
 # ============================================================
 
 PIPELINE_STEPS = [
-
     (
         "Convert human feedback into constraints",
         "src/constraint_engine.py"
     ),
-
     (
         "Run constrained clustering",
         "src/constrained_clustering.py"
     ),
-
     (
         "Compare baseline and constrained clustering",
         "src/compare_clustering.py"
     ),
-
     (
         "Analyze the impact of human feedback",
         "src/analyze_feedback_impact.py"
     ),
-
     (
         "Generate new intelligent molecule pairs",
         "src/intelligent_pair_selection.py"
     )
-
 ]
 
 
@@ -100,14 +94,11 @@ PIPELINE_STEPS = [
 def load_molecules():
 
     if not SDF_PATH.exists():
-
         raise FileNotFoundError(
             f"COX-2 SDF file not found: {SDF_PATH}"
         )
 
-    supplier = Chem.SDMolSupplier(
-        str(SDF_PATH)
-    )
+    supplier = Chem.SDMolSupplier(str(SDF_PATH))
 
     molecules = [
         mol for mol in supplier
@@ -118,15 +109,12 @@ def load_molecules():
 
 
 try:
-
     molecules = load_molecules()
 
 except Exception as error:
-
     st.error(
         f"Unable to load chemical structures: {error}"
     )
-
     st.stop()
 
 
@@ -142,17 +130,14 @@ def display_molecule(molecule_id):
     index = int(molecule_id) - 1
 
     if index < 0 or index >= len(molecules):
-
         st.error(
             f"Invalid molecule ID: {molecule_id}"
         )
-
         return
 
     mol = molecules[index]
 
-    # Generate 2D chemical structure image
-
+    # Generate 2D chemical structure image.
     image = Draw.MolToImage(
         mol,
         size=(450, 350),
@@ -181,74 +166,53 @@ def run_learning_pipeline():
         f"Project directory: {PROJECT_ROOT}"
     )
 
-    # Verify scripts
-
+    # Verify scripts.
     for description, script in PIPELINE_STEPS:
 
         script_path = PROJECT_ROOT / script
 
         if not script_path.exists():
-
             logs.append(
                 f"ERROR: Script not found: {script}"
             )
-
             return False, "\n".join(logs)
 
-    # Verify feedback file
-
+    # Verify feedback file.
     if not FEEDBACK_PATH.exists():
-
         logs.append(
             "ERROR: Human feedback file not found."
         )
-
         return False, "\n".join(logs)
 
-    # Execute pipeline
-
+    # Execute pipeline.
     for step_number, (description, script) in enumerate(
         PIPELINE_STEPS,
         start=1
     ):
 
         logs.append("\n" + "-" * 60)
-
         logs.append(
             f"STEP {step_number}/{len(PIPELINE_STEPS)}: {description}"
         )
-
         logs.append("-" * 60)
 
         try:
-
             result = subprocess.run(
-
                 [
                     sys.executable,
                     str(PROJECT_ROOT / script)
                 ],
-
                 cwd=PROJECT_ROOT,
-
                 capture_output=True,
-
                 text=True,
-
                 check=True,
-
                 timeout=300
-
             )
 
             logs.append(result.stdout)
 
             if result.stderr:
-
-                logs.append(
-                    "\nWARNINGS / STDERR:"
-                )
-
+                logs.append("\nWARNINGS / STDERR:")
                 logs.append(result.stderr)
 
             logs.append(
@@ -256,38 +220,29 @@ def run_learning_pipeline():
             )
 
         except subprocess.TimeoutExpired:
-
             logs.append(
                 f"ERROR: {description} exceeded timeout."
             )
-
             return False, "\n".join(logs)
 
         except subprocess.CalledProcessError as error:
-
             logs.append(
                 f"ERROR: Pipeline stopped during: {description}"
             )
-
             logs.append(error.stdout or "")
             logs.append(error.stderr or "")
-
             return False, "\n".join(logs)
 
         except Exception as error:
-
             logs.append(
                 f"UNEXPECTED ERROR: {str(error)}"
             )
-
             return False, "\n".join(logs)
 
     logs.append("\n" + "=" * 60)
-
     logs.append(
         "PEGAPLUS PIPELINE COMPLETED SUCCESSFULLY!"
     )
-
     logs.append("=" * 60)
 
     return True, "\n".join(logs)
@@ -324,11 +279,9 @@ if st.button(
         success, output = run_learning_pipeline()
 
     st.session_state["pipeline_output"] = output
-
     st.session_state["pipeline_success"] = success
 
     if success:
-
         st.cache_data.clear()
 
         st.success(
@@ -338,7 +291,6 @@ if st.button(
         st.rerun()
 
     else:
-
         st.error(
             "Pipeline execution failed. Check the logs."
         )
@@ -371,13 +323,10 @@ def load_data():
     molecules_df = pd.read_csv(DATA_PATH)
 
     if RECOMMENDATION_PATH.exists():
-
         recommendations_df = pd.read_csv(
             RECOMMENDATION_PATH
         )
-
     else:
-
         recommendations_df = pd.DataFrame()
 
     return molecules_df, recommendations_df
@@ -397,11 +346,9 @@ def load_feedback():
         feedback = pd.read_csv(FEEDBACK_PATH)
 
         if "relationship" not in feedback.columns:
-
             feedback["relationship"] = None
 
         if "feedback" not in feedback.columns:
-
             feedback["feedback"] = None
 
         feedback["relationship"] = (
@@ -449,21 +396,13 @@ def save_feedback(
     global feedback_df
 
     new_record = {
-
         "molecule_1": int(molecule_1),
-
         "molecule_2": int(molecule_2),
-
         "relationship": feedback,
-
         "feedback": feedback,
-
         "cluster_1": int(cluster_1),
-
         "cluster_2": int(cluster_2),
-
         "timestamp": pd.Timestamp.now().isoformat()
-
     }
 
     new_record_df = pd.DataFrame(
@@ -471,14 +410,11 @@ def save_feedback(
     )
 
     feedback_df = pd.concat(
-
         [
             feedback_df,
             new_record_df
         ],
-
         ignore_index=True
-
     )
 
     feedback_df.to_csv(
@@ -494,21 +430,18 @@ def save_feedback(
 col1, col2, col3 = st.columns(3)
 
 with col1:
-
     st.metric(
         "Total Molecules",
         len(df)
     )
 
 with col2:
-
     st.metric(
         "Recommended Pairs",
         len(recommendations)
     )
 
 with col3:
-
     st.metric(
         "Feedback Records",
         len(feedback_df)
@@ -525,18 +458,14 @@ st.divider()
 def get_pair_key(row):
 
     return tuple(sorted((
-
         int(row["molecule_1"]),
-
         int(row["molecule_2"])
-
     )))
 
 
 reviewed_pairs = set()
 
 for _, row in feedback_df.iterrows():
-
     reviewed_pairs.add(
         get_pair_key(row)
     )
@@ -556,15 +485,12 @@ if not recommendations.empty:
     )
 
     pending = recommendations[
-
         ~recommendations["pair_key"].isin(
             reviewed_pairs
         )
-
     ].copy()
 
 else:
-
     pending = pd.DataFrame()
 
 
@@ -587,26 +513,20 @@ if pending.empty:
 else:
 
     strategy = st.selectbox(
-
         "Select Recommendation Strategy",
-
         [
             "All Strategies",
             "High Similarity",
             "Low Similarity",
             "Cluster Boundary"
         ]
-
     )
 
     if strategy != "All Strategies":
-
         filtered = pending[
             pending["selection_strategy"] == strategy
         ]
-
     else:
-
         filtered = pending
 
     if filtered.empty:
@@ -626,21 +546,13 @@ else:
         )
 
         selected_index = st.selectbox(
-
             "Choose a molecule pair",
-
             range(len(pair_options)),
-
             format_func=lambda i: (
-
                 f"Molecule {pair_options[i]['molecule_1']} "
-
-                f" ↔ Molecule {pair_options[i]['molecule_2']} "
-
+                f"↔ Molecule {pair_options[i]['molecule_2']} "
                 f"({pair_options[i]['selection_strategy']})"
-
             )
-
         )
 
         selected_pair = pair_options[selected_index]
@@ -737,23 +649,46 @@ else:
 
         st.subheader("🧑‍🔬 Human Feedback")
 
-        st.write("""
-        Examine the chemical structures and provide your judgment.
+        st.markdown("""
+        ### Evaluate Structural Similarity
 
-        Are these two molecules structurally similar?
+        Examine the two chemical structures carefully.
+
+        **Question:**
+
+        Based ONLY on their chemical structures, would you
+        consider these two molecules structurally similar?
+
+        Please consider:
+        - Molecular scaffolds and ring systems.
+        - Functional groups.
+        - Heteroatoms and their positions.
+        - Substituents and their arrangement.
+
+        Do NOT consider biological activity or pharmacological
+        properties when providing your judgment.
+        """)
+
+        st.info("""
+        **Important distinction:**
+
+        Structural similarity refers to similarities in chemical
+        structure.
+
+        Biological activity similarity refers to similarities in
+        biological effects.
+
+        These are different properties. Our current feedback
+        experiment focuses exclusively on structural similarity.
         """)
 
         feedback = st.radio(
-
             "Select your judgment:",
-
             [
                 "Similar",
                 "Dissimilar"
             ],
-
             horizontal=True
-
         )
 
         if st.button(
@@ -763,17 +698,11 @@ else:
         ):
 
             save_feedback(
-
                 molecule_1,
-
                 molecule_2,
-
                 feedback,
-
                 cluster_1,
-
                 cluster_2
-
             )
 
             st.success(
@@ -800,41 +729,29 @@ if not feedback_df.empty:
     # Historical records are preserved in the CSV.
 
     display_columns = [
-
         "molecule_1",
         "molecule_2",
         "relationship",
         "cluster_1",
         "cluster_2",
         "timestamp"
-
     ]
 
     available_columns = [
-
         col for col in display_columns
         if col in feedback_df.columns
-
     ]
 
     st.dataframe(
-
         feedback_df[available_columns],
-
         use_container_width=True
-
     )
 
     st.download_button(
-
         "Download Feedback CSV",
-
         data=feedback_df.to_csv(index=False),
-
         file_name="human_feedback.csv",
-
         mime="text/csv"
-
     )
 
 else:

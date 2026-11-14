@@ -11,3 +11,6 @@ molecule_1,molecule_2,relationship,cluster_1,cluster_2,reference_label_1,referen
 146,147,Similar,1.0,0.0,,,2026-11-14T00:11:45.040948,Similar
 50,53,Dissimilar,0.0,1.0,,,2026-11-14T00:11:50.559185,Dissimilar
 79,81,Similar,4.0,4.0,,,2026-11-14T00:12:44.282601,Similar
+132,138,Similar,2.0,7.0,,,2026-11-14T03:12:43.633291,Similar
+24,34,Dissimilar,7.0,3.0,,,2026-11-14T03:12:52.624524,Dissimilar
+135,136,Similar,2.0,2.0,,,2026-11-14T03:14:33.271399,Similar
